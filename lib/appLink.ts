@@ -12,16 +12,21 @@ export const openAppLink = (path: string = "") => {
   }
 
   // Your app's package name (replace with your actual package name)
-  const packageName = "com.example.app";
+  const packageName = "com.example.expense_tracker_mobile";
+
+  // Your website domain that matches what's in your Android manifest
+  const domain = "expense-tracker-portal.vercel.app";
 
   // App store link for fallback
   const androidAppStoreLink = `https://play.google.com/store/apps/details?id=${packageName}`;
 
   // The specific path to open in the app
-  const deepLinkPath = path ? `${path}` : "";
+  const deepLinkPath = path ? path : "";
 
-  // For Android, try intent URL first (works better on newer devices)
-  const intentUrl = `intent://${deepLinkPath}#Intent;scheme=yourapp;package=${packageName};end`;
+  // For Android, try intent URL with your domain (App Links approach)
+  const intentUrl = `intent://${domain}${
+    deepLinkPath.startsWith("/") ? deepLinkPath : "/" + deepLinkPath
+  }#Intent;scheme=https;package=${packageName};end`;
   window.location.href = intentUrl;
 
   // Fallback to Play Store after a short timeout

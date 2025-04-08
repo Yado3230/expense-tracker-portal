@@ -3,8 +3,10 @@
     "relation": ["delegate_permission/common.handle_all_urls"],
     "target": {
       "namespace": "android_app",
-      "package_name": "com.example.app",
-      "sha256_cert_fingerprints": ["AA:BB:CC:DD:EE:..."]
+      "package_name": "com.example.expense_tracker_mobile",
+      "sha256_cert_fingerprints": [
+        "07:E1:45:AB:37:6E:5E:FE:90:8D:1F:E4:D9:15:86:B0:27:12:4E:D0:B4:6B:87:99:0F:EF:E6:85:AF:B7:B5:FF"
+      ]
     }
   }
 ]

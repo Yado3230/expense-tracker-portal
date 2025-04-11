@@ -1,8 +1,30 @@
 import { api } from "./api";
-import { User } from "./auth";
-import { Budget } from "./budget";
+import { Budget as BaseBudget } from "./budget";
 import { Expense } from "./expenseApi";
 import { Transaction } from "./transaction";
+
+// Define API response user type that uses _id
+export interface ApiUser {
+  _id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  role: string;
+  currency: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Define admin budget with nested user object
+export interface AdminBudget extends Omit<BaseBudget, "user"> {
+  user: {
+    _id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+  };
+}
 
 export interface UpdateUserRoleRequest {
   role: "admin" | "user";
@@ -11,7 +33,7 @@ export interface UpdateUserRoleRequest {
 export interface UpdateUserRoleResponse {
   message: string;
   user: {
-    id: string;
+    _id: string;
     role: string;
   };
 }
@@ -23,13 +45,13 @@ export interface MessageResponse {
 export const adminApi = api.injectEndpoints({
   endpoints: (builder) => ({
     // User Management
-    getAllUsers: builder.query<User[], void>({
+    getAllUsers: builder.query<ApiUser[], void>({
       query: () => "/api/users/all",
       providesTags: ["User"],
     }),
     deleteUser: builder.mutation<MessageResponse, string>({
       query: (userId) => ({
-        url: `/api/admin/users/${userId}`,
+        url: `/api/users/${userId}`,
         method: "DELETE",
       }),
       invalidatesTags: ["User"],
@@ -54,14 +76,14 @@ export const adminApi = api.injectEndpoints({
     }),
     activateUser: builder.mutation<MessageResponse, string>({
       query: (userId) => ({
-        url: `/api/admin/users/${userId}/activate`,
+        url: `/api/users/${userId}/activate`,
         method: "PUT",
       }),
       invalidatesTags: ["User"],
     }),
 
     // Budget Management (Admin)
-    getAllBudgets: builder.query<Budget[], void>({
+    getAllBudgets: builder.query<AdminBudget[], void>({
       query: () => "/api/budgets/admin/all",
       providesTags: ["Budget"],
     }),

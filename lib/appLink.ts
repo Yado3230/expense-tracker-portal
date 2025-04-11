@@ -17,9 +17,6 @@ export const openAppLink = (path: string = "") => {
   // Your website domain that matches what's in your Android manifest
   const domain = "expense-tracker-portal.vercel.app";
 
-  // App store link for fallback
-  const androidAppStoreLink = `https://play.google.com/store/apps/details?id=${packageName}`;
-
   // The specific path to open in the app
   const deepLinkPath = path ? path : "";
 
@@ -27,10 +24,9 @@ export const openAppLink = (path: string = "") => {
   const intentUrl = `intent://${domain}${
     deepLinkPath.startsWith("/") ? deepLinkPath : "/" + deepLinkPath
   }#Intent;scheme=https;package=${packageName};end`;
+
+  // Just try to open the app but don't redirect anywhere if it fails
   window.location.href = intentUrl;
 
-  // Fallback to Play Store after a short timeout
-  setTimeout(() => {
-    window.location.href = androidAppStoreLink;
-  }, 2500);
+  // No fallback redirection to Play Store
 };

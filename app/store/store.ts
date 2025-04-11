@@ -14,11 +14,26 @@ export const store = configureStore({
     getDefaultMiddleware({
       serializableCheck: {
         // Ignore these action types
-        ignoredActions: ["your/action/type"],
+        ignoredActions: [
+          "auth/executeQuery/fulfilled",
+          "auth/executeQuery/pending",
+          "auth/executeMutation/fulfilled",
+          "auth/executeMutation/pending",
+          "auth/executeMutation/rejected",
+          "auth/executeQuery/rejected",
+        ],
         // Ignore these field paths in all actions
-        ignoredActionPaths: ["meta.arg", "payload.timestamp"],
+        ignoredActionPaths: [
+          "meta.arg",
+          "payload.timestamp",
+          "meta.baseQueryMeta",
+          "meta.request",
+        ],
         // Ignore these paths in the state
-        ignoredPaths: ["items.dates"],
+        ignoredPaths: [
+          `${api.reducerPath}.queries`,
+          `${api.reducerPath}.mutations`,
+        ],
       },
     }).concat(api.middleware),
   devTools: process.env.NODE_ENV !== "production",

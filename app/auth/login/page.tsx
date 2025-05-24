@@ -218,7 +218,7 @@ const LoginPage = () => {
                                 Password
                               </FormLabel>
                               <Link
-                                href="/auth/forgotpassword"
+                                href="/forgotpassword"
                                 className="text-sm font-medium text-blue-600 hover:text-blue-800 transition-colors"
                               >
                                 Forgot password?

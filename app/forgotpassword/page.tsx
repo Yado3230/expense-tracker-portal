@@ -60,17 +60,15 @@ function ResetPasswordContent() {
       )
     );
 
-    // Check if token exists
-    if (!token) {
-      setErrorMessage("Invalid or missing reset token. Please try again.");
-    } else {
-      // Try to open the app if on mobile and we have a token
-      if (typeof window !== "undefined" && isMobile) {
-        const deepLinkPath = `/resetpassword?token=${token}`;
-        openAppLink(deepLinkPath);
-      }
+    // Try to open the app if on mobile
+    if (typeof window !== "undefined") {
+      const deepLinkPath = token
+        ? `/forgotpassword?token=${token}`
+        : "/forgotpassword";
+
+      openAppLink(deepLinkPath);
     }
-  }, [token, isMobile]);
+  }, [token]);
 
   async function onSubmit(data: ResetPasswordFormValues) {
     if (!token) {

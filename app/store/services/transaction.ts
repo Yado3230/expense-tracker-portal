@@ -1,19 +1,60 @@
 import { api } from "./api";
 
+export interface Category {
+  _id: string;
+  name: string;
+  description: string;
+  icon: string;
+  color: string;
+}
+
+export interface UserInfo {
+  _id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+}
+
 export interface Transaction {
   _id: string;
-  user: string;
-  type: "expense" | "income";
+  user: UserInfo;
+  type: "Expense" | "Income";
+  title: string;
   amount: number;
-  category: string;
+  category: Category;
   description: string;
   date: string;
   createdAt: string;
   updatedAt: string;
+  __v?: number;
+}
+
+export interface TransactionFilters {
+  page?: number;
+  size?: number;
+  query?: string;
+  minAmount?: number;
+  maxAmount?: number;
+  startDate?: string;
+  endDate?: string;
+  category?: string;
+  type?: "Expense" | "Income";
+  id?: string;
+}
+
+export interface PaginatedResponse<T> {
+  content: T[];
+  page: {
+    size: number;
+    number: number;
+    totalElements: number;
+    totalPages: number;
+  };
 }
 
 export interface CreateTransactionRequest {
-  type: "expense" | "income";
+  type: "Expense" | "Income";
+  title: string;
   amount: number;
   category: string;
   description: string;
@@ -21,7 +62,8 @@ export interface CreateTransactionRequest {
 }
 
 export interface UpdateTransactionRequest {
-  type?: "expense" | "income";
+  type?: "Expense" | "Income";
+  title?: string;
   amount?: number;
   category?: string;
   description?: string;
@@ -34,17 +76,41 @@ export interface DeleteTransactionResponse {
 
 export const transactionApi = api.injectEndpoints({
   endpoints: (builder) => ({
-    getTransactions: builder.query<Transaction[], void>({
-      query: () => "/api/transactions",
+    getTransactions: builder.query<
+      PaginatedResponse<Transaction>,
+      TransactionFilters
+    >({
+      query: (params = {}) => {
+        // Build query string from params
+        const queryParams = new URLSearchParams();
+
+        if (params.page !== undefined)
+          queryParams.append("page", params.page.toString());
+        if (params.size !== undefined)
+          queryParams.append("size", params.size.toString());
+        if (params.query) queryParams.append("query", params.query);
+        if (params.minAmount !== undefined)
+          queryParams.append("minAmount", params.minAmount.toString());
+        if (params.maxAmount !== undefined)
+          queryParams.append("maxAmount", params.maxAmount.toString());
+        if (params.startDate) queryParams.append("startDate", params.startDate);
+        if (params.endDate) queryParams.append("endDate", params.endDate);
+        if (params.category) queryParams.append("category", params.category);
+        if (params.type) queryParams.append("type", params.type);
+        if (params.id) queryParams.append("id", params.id);
+
+        const queryString = queryParams.toString();
+        return `/api/transactions/admin${queryString ? `?${queryString}` : ""}`;
+      },
       providesTags: ["Transaction"],
     }),
     getTransactionById: builder.query<Transaction, string>({
-      query: (id) => `/api/transactions/${id}`,
+      query: (id) => `/transactions/${id}`,
       providesTags: (_, __, id) => [{ type: "Transaction", id }],
     }),
     createTransaction: builder.mutation<Transaction, CreateTransactionRequest>({
       query: (transaction) => ({
-        url: "/api/transactions",
+        url: "/transactions",
         method: "POST",
         body: transaction,
       }),
@@ -55,7 +121,7 @@ export const transactionApi = api.injectEndpoints({
       { id: string; transaction: UpdateTransactionRequest }
     >({
       query: ({ id, transaction }) => ({
-        url: `/api/transactions/${id}`,
+        url: `/transactions/${id}`,
         method: "PUT",
         body: transaction,
       }),
@@ -66,7 +132,7 @@ export const transactionApi = api.injectEndpoints({
     }),
     deleteTransaction: builder.mutation<DeleteTransactionResponse, string>({
       query: (id) => ({
-        url: `/api/transactions/${id}`,
+        url: `/transactions/${id}`,
         method: "DELETE",
       }),
       invalidatesTags: (_, __, id) => [
@@ -74,6 +140,15 @@ export const transactionApi = api.injectEndpoints({
         "Transaction",
       ],
     }),
+    deleteTransactionAdmin: builder.mutation<DeleteTransactionResponse, string>(
+      {
+        query: (id) => ({
+          url: `/api/transactions/admin/${id}`,
+          method: "DELETE",
+        }),
+        invalidatesTags: ["Transaction"],
+      }
+    ),
   }),
 });
 
@@ -83,4 +158,5 @@ export const {
   useCreateTransactionMutation,
   useUpdateTransactionMutation,
   useDeleteTransactionMutation,
+  useDeleteTransactionAdminMutation,
 } = transactionApi;

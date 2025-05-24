@@ -7,7 +7,6 @@ import {
   LayoutDashboard,
   Users,
   Wallet,
-  Receipt,
   CreditCard,
   Settings,
   ChevronLeft,
@@ -26,14 +25,9 @@ const navItems = [
     icon: <Users className="h-5 w-5" />,
   },
   {
-    title: "Budgets",
-    href: "/dashboard/budgets",
+    title: "Category",
+    href: "/dashboard/categories",
     icon: <Wallet className="h-5 w-5" />,
-  },
-  {
-    title: "Expenses",
-    href: "/dashboard/expenses",
-    icon: <Receipt className="h-5 w-5" />,
   },
   {
     title: "Transactions",

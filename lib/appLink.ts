@@ -12,7 +12,7 @@ export const openAppLink = (path: string = "") => {
   }
 
   // Your app's package name (replace with your actual package name)
-  const packageName = "com.example.expense_tracker_mobile";
+  const packageName = "com.example.expense_tracker";
 
   // Your website domain that matches what's in your Android manifest
   const domain = "expense-tracker-portal.vercel.app";

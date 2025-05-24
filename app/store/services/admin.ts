@@ -14,6 +14,32 @@ export interface ApiUser {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+  image?: string | null;
+  language?: string;
+  isVerified?: boolean;
+}
+
+// Define paginated response interface
+export interface PaginatedResponse<T> {
+  content: T[];
+  page: {
+    size: number;
+    number: number;
+    totalElements: number;
+    totalPages: number;
+  };
+}
+
+// Define user filter params
+export interface UserFilterParams {
+  page?: number;
+  size?: number;
+  query?: string;
+  role?: string;
+  isActive?: boolean;
+  startDate?: string;
+  endDate?: string;
+  id?: string;
 }
 
 // Define admin budget with nested user object
@@ -47,6 +73,26 @@ export const adminApi = api.injectEndpoints({
     // User Management
     getAllUsers: builder.query<ApiUser[], void>({
       query: () => "/api/users/all",
+      providesTags: ["User"],
+    }),
+    getUsers: builder.query<PaginatedResponse<ApiUser>, UserFilterParams>({
+      query: (params) => {
+        // Build query string from params
+        const queryParams = new URLSearchParams();
+        if (params.page !== undefined)
+          queryParams.append("page", params.page.toString());
+        if (params.size !== undefined)
+          queryParams.append("size", params.size.toString());
+        if (params.query) queryParams.append("query", params.query);
+        if (params.role) queryParams.append("role", params.role);
+        if (params.isActive !== undefined)
+          queryParams.append("isActive", params.isActive.toString());
+        if (params.startDate) queryParams.append("startDate", params.startDate);
+        if (params.endDate) queryParams.append("endDate", params.endDate);
+        if (params.id) queryParams.append("id", params.id);
+
+        return `/api/users?${queryParams.toString()}`;
+      },
       providesTags: ["User"],
     }),
     deleteUser: builder.mutation<MessageResponse, string>({
@@ -126,6 +172,7 @@ export const adminApi = api.injectEndpoints({
 export const {
   // User Management
   useGetAllUsersQuery,
+  useGetUsersQuery,
   useDeleteUserMutation,
   useUpdateUserRoleMutation,
   useDeactivateUserMutation,

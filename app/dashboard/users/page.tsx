@@ -1,12 +1,13 @@
 "use client";
 import React from "react";
 import {
-  useGetAllUsersQuery,
+  useGetUsersQuery,
   useDeleteUserMutation,
   useUpdateUserRoleMutation,
   useDeactivateUserMutation,
   useActivateUserMutation,
   ApiUser,
+  UserFilterParams,
 } from "@/app/store/services/admin";
 import {
   DropdownMenu,
@@ -29,8 +30,18 @@ import {
   Trash2,
   UserCog,
   UsersRound,
+  Filter,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
 
 // DataTable imports
 import {
@@ -41,7 +52,6 @@ import {
   flexRender,
   getCoreRowModel,
   getFilteredRowModel,
-  getPaginationRowModel,
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table";
@@ -65,7 +75,53 @@ const UserPage = () => {
     React.useState<VisibilityState>({});
   const [rowSelection, setRowSelection] = React.useState({});
 
-  const { data: users = [], isLoading, refetch } = useGetAllUsersQuery();
+  // Pagination state
+  const [pageIndex, setPageIndex] = React.useState(0);
+  const [pageSize, setPageSize] = React.useState(10);
+
+  // Search and filter states
+  const [searchQuery, setSearchQuery] = React.useState("");
+  const [roleFilter, setRoleFilter] = React.useState<string | undefined>(
+    undefined
+  );
+  const [statusFilter, setStatusFilter] = React.useState<boolean | undefined>(
+    undefined
+  );
+
+  // Build filters from state
+  const filters: UserFilterParams = React.useMemo(() => {
+    const result: UserFilterParams = {
+      page: pageIndex,
+      size: pageSize,
+    };
+
+    if (searchQuery) {
+      result.query = searchQuery;
+    }
+
+    if (roleFilter) {
+      result.role = roleFilter;
+    }
+
+    if (statusFilter !== undefined) {
+      result.isActive = statusFilter;
+    }
+
+    return result;
+  }, [pageIndex, pageSize, searchQuery, roleFilter, statusFilter]);
+
+  // Reset pagination when filters change
+  React.useEffect(() => {
+    setPageIndex(0);
+  }, [searchQuery, roleFilter, statusFilter]);
+
+  // Fetch data with filters
+  const { data: usersData, isLoading, refetch } = useGetUsersQuery(filters);
+
+  const users = usersData?.content || [];
+  const pagination = usersData?.page;
+
+  // Mutations
   const [deleteUser, { isLoading: isDeleting }] = useDeleteUserMutation();
   const [updateUserRole, { isLoading: isUpdatingRole }] =
     useUpdateUserRoleMutation();
@@ -277,45 +333,54 @@ const UserPage = () => {
     },
   ];
 
-  // Define fullName for filtering (firstName + lastName)
-  const getUserFullName = (user: ApiUser) =>
-    `${user.firstName} ${user.lastName}`.toLowerCase();
-
-  // Set up global filter function
-  const filterUsers = (users: ApiUser[], query: string) => {
-    const lowercaseQuery = query.toLowerCase();
-    return users.filter(
-      (user) =>
-        getUserFullName(user).includes(lowercaseQuery) ||
-        user.email.toLowerCase().includes(lowercaseQuery)
-    );
-  };
-
-  // State for custom search
-  const [searchQuery, setSearchQuery] = React.useState("");
-  const filteredUsers = React.useMemo(
-    () => filterUsers(users, searchQuery),
-    [users, searchQuery, filterUsers]
-  );
-
+  // Initialize the table
   const table = useReactTable({
-    data: filteredUsers,
+    data: users,
     columns,
+    pageCount: pagination?.totalPages || 1,
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     onColumnVisibilityChange: setColumnVisibility,
     onRowSelectionChange: setRowSelection,
+    onPaginationChange: (updater) => {
+      if (typeof updater === "function") {
+        const newPagination = updater({
+          pageIndex,
+          pageSize,
+        });
+        setPageIndex(newPagination.pageIndex);
+        setPageSize(newPagination.pageSize);
+      } else {
+        setPageIndex(updater.pageIndex);
+        setPageSize(updater.pageSize);
+      }
+    },
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
+    manualPagination: true,
     state: {
       sorting,
       columnFilters,
       columnVisibility,
       rowSelection,
+      pagination: {
+        pageIndex,
+        pageSize,
+      },
     },
   });
+
+  // Clear all filters
+  const clearFilters = () => {
+    setSearchQuery("");
+    setRoleFilter(undefined);
+    setStatusFilter(undefined);
+  };
+
+  // Check if any filters are active
+  const hasActiveFilters =
+    searchQuery || roleFilter || statusFilter !== undefined;
 
   if (isLoading) {
     return (
@@ -355,16 +420,142 @@ const UserPage = () => {
               <UsersRound className="h-5 w-5 text-purple-500" />
               <CardTitle className="text-lg font-medium">Users</CardTitle>
             </div>
-            <div className="relative w-64">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <Input
-                placeholder="Search users..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 h-9"
-              />
+            <div className="flex items-center gap-3">
+              <div className="relative w-64">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                  placeholder="Search users..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9 h-9"
+                />
+              </div>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="h-9 gap-1">
+                    <Filter className="h-3.5 w-3.5" />
+                    <span>Filter</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuLabel>Filter Users</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <div className="p-2">
+                    <p className="text-xs font-medium mb-1.5 text-gray-500">
+                      Role
+                    </p>
+                    <Select
+                      value={roleFilter || "all"}
+                      onValueChange={(value) =>
+                        setRoleFilter(value === "all" ? undefined : value)
+                      }
+                    >
+                      <SelectTrigger className="h-8">
+                        <SelectValue placeholder="All roles" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All roles</SelectItem>
+                        <SelectItem value="admin">Admin</SelectItem>
+                        <SelectItem value="user">User</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="p-2 pt-0">
+                    <p className="text-xs font-medium mb-1.5 text-gray-500">
+                      Status
+                    </p>
+                    <Select
+                      value={
+                        statusFilter === undefined
+                          ? "all"
+                          : statusFilter
+                          ? "active"
+                          : "inactive"
+                      }
+                      onValueChange={(value) => {
+                        if (value === "all") setStatusFilter(undefined);
+                        else setStatusFilter(value === "active");
+                      }}
+                    >
+                      <SelectTrigger className="h-8">
+                        <SelectValue placeholder="All statuses" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All statuses</SelectItem>
+                        <SelectItem value="active">Active</SelectItem>
+                        <SelectItem value="inactive">Inactive</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <DropdownMenuSeparator />
+                  <div className="p-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-full justify-center text-xs"
+                      onClick={clearFilters}
+                    >
+                      Clear filters
+                    </Button>
+                  </div>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
+          {/* Active filters display */}
+          {hasActiveFilters && (
+            <div className="flex items-center gap-2 mt-3">
+              <span className="text-xs text-gray-500">Filters:</span>
+              <div className="flex flex-wrap gap-2">
+                {roleFilter && (
+                  <Badge
+                    variant="outline"
+                    className="flex items-center gap-1 px-2 py-0.5 h-6"
+                  >
+                    Role: {roleFilter}
+                    <X
+                      className="h-3 w-3 ml-1 cursor-pointer"
+                      onClick={() => setRoleFilter(undefined)}
+                    />
+                  </Badge>
+                )}
+                {statusFilter !== undefined && (
+                  <Badge
+                    variant="outline"
+                    className="flex items-center gap-1 px-2 py-0.5 h-6"
+                  >
+                    Status: {statusFilter ? "Active" : "Inactive"}
+                    <X
+                      className="h-3 w-3 ml-1 cursor-pointer"
+                      onClick={() => setStatusFilter(undefined)}
+                    />
+                  </Badge>
+                )}
+                {searchQuery && (
+                  <Badge
+                    variant="outline"
+                    className="flex items-center gap-1 px-2 py-0.5 h-6"
+                  >
+                    Search: {searchQuery}
+                    <X
+                      className="h-3 w-3 ml-1 cursor-pointer"
+                      onClick={() => setSearchQuery("")}
+                    />
+                  </Badge>
+                )}
+                {hasActiveFilters && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 px-2 py-0 text-xs"
+                    onClick={clearFilters}
+                  >
+                    Clear all
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
         </CardHeader>
         <CardContent className="p-0">
           <div className="rounded-md">

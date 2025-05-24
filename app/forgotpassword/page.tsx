@@ -1,13 +1,13 @@
 "use client";
 
 import { useState, useEffect, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { useForgotPasswordMutation } from "@/app/store/services/auth";
+import { useResetPasswordMutation } from "@/app/store/services/auth";
 import { Button } from "@/components/ui/button";
-import { AtSign, AlertTriangle, CheckCircle, Smartphone } from "lucide-react";
+import { AlertTriangle, CheckCircle, KeyRound, Smartphone } from "lucide-react";
 import Link from "next/link";
 import { openAppLink } from "@/lib/appLink";
 import {
@@ -20,25 +20,35 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 
-// Forgot password form schema with validation
-const forgotPasswordSchema = z.object({
-  email: z.string().email({ message: "Please enter a valid email address" }),
-});
+// Reset password form schema with validation
+const resetPasswordSchema = z
+  .object({
+    password: z
+      .string()
+      .min(6, { message: "Password must be at least 6 characters" }),
+    confirmPassword: z.string(),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Passwords don't match",
+    path: ["confirmPassword"],
+  });
 
-type ForgotPasswordFormValues = z.infer<typeof forgotPasswordSchema>;
+type ResetPasswordFormValues = z.infer<typeof resetPasswordSchema>;
 
-function ForgotPasswordContent() {
+function ResetPasswordContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
-  const [forgotPassword, { isLoading }] = useForgotPasswordMutation();
+  const [resetPassword, { isLoading }] = useResetPasswordMutation();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isMobile, setIsMobile] = useState<boolean>(false);
 
-  const form = useForm<ForgotPasswordFormValues>({
-    resolver: zodResolver(forgotPasswordSchema),
+  const form = useForm<ResetPasswordFormValues>({
+    resolver: zodResolver(resetPasswordSchema),
     defaultValues: {
-      email: "",
+      password: "",
+      confirmPassword: "",
     },
   });
 
@@ -50,23 +60,33 @@ function ForgotPasswordContent() {
       )
     );
 
-    // Try to open the app if on mobile
-    if (typeof window !== "undefined") {
-      const deepLinkPath = token
-        ? `/forgotpassword?token=${token}`
-        : "/forgotpassword";
-
-      openAppLink(deepLinkPath);
+    // Check if token exists
+    if (!token) {
+      setErrorMessage("Invalid or missing reset token. Please try again.");
+    } else {
+      // Try to open the app if on mobile and we have a token
+      if (typeof window !== "undefined" && isMobile) {
+        const deepLinkPath = `/resetpassword?token=${token}`;
+        openAppLink(deepLinkPath);
+      }
     }
-  }, [token]);
+  }, [token, isMobile]);
 
-  async function onSubmit(data: ForgotPasswordFormValues) {
+  async function onSubmit(data: ResetPasswordFormValues) {
+    if (!token) {
+      setErrorMessage("Invalid or missing reset token. Please try again.");
+      return;
+    }
+
     try {
       setErrorMessage(null);
       setSuccessMessage(null);
 
-      // Call the forgotPassword mutation
-      const result = await forgotPassword(data);
+      // Call the resetPassword mutation
+      const result = await resetPassword({
+        token,
+        password: data.password,
+      });
 
       if ("error" in result) {
         // Handle error case
@@ -80,15 +100,19 @@ function ForgotPasswordContent() {
 
       // Success case - result.data contains the response
       setSuccessMessage(
-        result.data.message ||
-          "Password reset instructions have been sent to your email."
+        result.data.message || "Your password has been successfully reset."
       );
 
       // Clear the form
       form.reset();
+
+      // Redirect to login after a brief delay
+      setTimeout(() => {
+        router.push("/auth/login");
+      }, 3000);
     } catch (error: unknown) {
       // Fallback error handling
-      console.error("Forgot password error:", error);
+      console.error("Reset password error:", error);
       setErrorMessage("An unexpected error occurred. Please try again.");
     }
   }
@@ -100,14 +124,14 @@ function ForgotPasswordContent() {
           <div className="bg-white rounded-2xl shadow-xl p-8">
             <div className="text-center mb-8">
               <h2 className="text-3xl font-bold text-gray-900">
-                Forgot Password
+                Reset Password
               </h2>
               <p className="mt-2 text-gray-600">
-                Enter your email address to receive a password reset link
+                Create a new password for your account
               </p>
             </div>
 
-            {isMobile && (
+            {isMobile && token && (
               <div className="mb-6">
                 <div className="p-4 bg-blue-50 rounded-xl border-l-4 border-blue-500 flex items-center mb-4">
                   <Smartphone className="h-5 w-5 text-blue-500 mr-3" />
@@ -118,9 +142,7 @@ function ForgotPasswordContent() {
 
                 <Button
                   onClick={() => {
-                    const deepLinkPath = token
-                      ? `/forgotpassword?token=${token}`
-                      : "/forgotpassword";
+                    const deepLinkPath = `/resetpassword?token=${token}`;
                     openAppLink(deepLinkPath);
                   }}
                   className="w-full mb-4 bg-blue-100 text-blue-700 hover:bg-blue-200"
@@ -151,45 +173,85 @@ function ForgotPasswordContent() {
               </div>
             )}
 
-            <Form {...form}>
-              <form
-                onSubmit={form.handleSubmit(onSubmit)}
-                className="space-y-6"
-              >
-                <FormField
-                  control={form.control}
-                  name="email"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-sm font-medium text-gray-700">
-                        Email Address
-                      </FormLabel>
-                      <div className="relative">
-                        <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                          <AtSign className="h-5 w-5 text-gray-400" />
-                        </div>
-                        <FormControl>
-                          <Input
-                            placeholder="Enter your email"
-                            className="h-12 pl-10 bg-gray-50 border-gray-200 rounded-xl text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                            {...field}
-                          />
-                        </FormControl>
-                      </div>
-                      <FormMessage className="text-sm" />
-                    </FormItem>
-                  )}
-                />
-
-                <Button
-                  type="submit"
-                  className="w-full h-12 text-base font-medium bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl transition-all duration-200 transform hover:scale-[1.02]"
-                  disabled={isLoading}
+            {!token ? (
+              <div className="text-center mt-4">
+                <p className="text-sm text-gray-500 mb-4">
+                  Please request a new password reset link.
+                </p>
+                <Link href="/auth/forgotpassword">
+                  <Button className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white">
+                    Go to Forgot Password
+                  </Button>
+                </Link>
+              </div>
+            ) : (
+              <Form {...form}>
+                <form
+                  onSubmit={form.handleSubmit(onSubmit)}
+                  className="space-y-6"
                 >
-                  {isLoading ? "Sending..." : "Reset Password"}
-                </Button>
-              </form>
-            </Form>
+                  <FormField
+                    control={form.control}
+                    name="password"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-sm font-medium text-gray-700">
+                          New Password
+                        </FormLabel>
+                        <div className="relative">
+                          <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                            <KeyRound className="h-5 w-5 text-gray-400" />
+                          </div>
+                          <FormControl>
+                            <Input
+                              type="password"
+                              placeholder="Enter new password"
+                              className="h-12 pl-10 bg-gray-50 border-gray-200 rounded-xl text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                              {...field}
+                            />
+                          </FormControl>
+                        </div>
+                        <FormMessage className="text-sm" />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="confirmPassword"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-sm font-medium text-gray-700">
+                          Confirm Password
+                        </FormLabel>
+                        <div className="relative">
+                          <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                            <KeyRound className="h-5 w-5 text-gray-400" />
+                          </div>
+                          <FormControl>
+                            <Input
+                              type="password"
+                              placeholder="Confirm your password"
+                              className="h-12 pl-10 bg-gray-50 border-gray-200 rounded-xl text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                              {...field}
+                            />
+                          </FormControl>
+                        </div>
+                        <FormMessage className="text-sm" />
+                      </FormItem>
+                    )}
+                  />
+
+                  <Button
+                    type="submit"
+                    className="w-full h-12 text-base font-medium bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl transition-all duration-200 transform hover:scale-[1.02]"
+                    disabled={isLoading}
+                  >
+                    {isLoading ? "Resetting..." : "Reset Password"}
+                  </Button>
+                </form>
+              </Form>
+            )}
 
             <div className="mt-6 text-center">
               <Link
@@ -206,10 +268,10 @@ function ForgotPasswordContent() {
   );
 }
 
-export default function ForgotPasswordPage() {
+export default function ResetPasswordPage() {
   return (
     <Suspense fallback={<div>Loading...</div>}>
-      <ForgotPasswordContent />
+      <ResetPasswordContent />
     </Suspense>
   );
 }

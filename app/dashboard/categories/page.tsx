@@ -2,7 +2,7 @@
 import React from "react";
 import { useGetCategoriesQuery } from "@/app/store/services/categoryApi";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { RefreshCw, Tags } from "lucide-react";
+import { RefreshCw, Tags, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
@@ -34,6 +34,63 @@ const CategoryPage = () => {
       month: "short",
       day: "numeric",
     }).format(date);
+  };
+
+  // Function to export categories data
+  const exportCategories = () => {
+    // Create CSV header
+    const headers = [
+      "Name",
+      "Description",
+      "Type",
+      "Transaction Type",
+      "Budget",
+      "Status",
+      "Created Date",
+    ];
+
+    // Create CSV content
+    let csvContent = headers.join(",") + "\n";
+
+    categories.forEach((category) => {
+      const row = [
+        category.name,
+        category.description || "",
+        category.type,
+        category.transactionType,
+        category.budget.toFixed(2),
+        category.isActive ? "Active" : "Inactive",
+        category.createdAt ? formatDate(category.createdAt) : "N/A",
+      ];
+
+      // Escape fields that might contain commas
+      const escapedRow = row.map((field) => {
+        if (
+          field.includes(",") ||
+          field.includes('"') ||
+          field.includes("\n")
+        ) {
+          return `"${field.replace(/"/g, '""')}"`;
+        }
+        return field;
+      });
+
+      csvContent += escapedRow.join(",") + "\n";
+    });
+
+    // Create a blob and download
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute(
+      "download",
+      `categories-export-${new Date().toISOString().split("T")[0]}.csv`
+    );
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   // Column definitions
@@ -148,6 +205,15 @@ const CategoryPage = () => {
           >
             <RefreshCw className="h-3.5 w-3.5" />
             <span>Refresh</span>
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={exportCategories}
+            className="flex items-center gap-1"
+          >
+            <Download className="h-3.5 w-3.5" />
+            <span>Export</span>
           </Button>
         </div>
       </div>

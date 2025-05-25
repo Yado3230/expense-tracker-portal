@@ -32,6 +32,7 @@ import {
   UsersRound,
   Filter,
   X,
+  Download,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -230,6 +231,63 @@ const UserPage = () => {
     }).format(date);
   };
 
+  // Function to export users data
+  const exportUsers = () => {
+    // Create CSV header
+    const headers = [
+      "First Name",
+      "Last Name",
+      "Email",
+      "Role",
+      "Currency",
+      "Status",
+      "Joined Date",
+    ];
+
+    // Create CSV content
+    let csvContent = headers.join(",") + "\n";
+
+    users.forEach((user) => {
+      const row = [
+        user.firstName,
+        user.lastName,
+        user.email,
+        user.role,
+        user.currency || "N/A",
+        user.isActive ? "Active" : "Inactive",
+        user.createdAt ? formatDate(user.createdAt) : "N/A",
+      ];
+
+      // Escape fields that might contain commas
+      const escapedRow = row.map((field) => {
+        if (
+          field.includes(",") ||
+          field.includes('"') ||
+          field.includes("\n")
+        ) {
+          return `"${field.replace(/"/g, '""')}"`;
+        }
+        return field;
+      });
+
+      csvContent += escapedRow.join(",") + "\n";
+    });
+
+    // Create a blob and download
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute(
+      "download",
+      `users-export-${new Date().toISOString().split("T")[0]}.csv`
+    );
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   // Column definitions
   const columns: ColumnDef<ApiUser>[] = [
     {
@@ -402,15 +460,26 @@ const UserPage = () => {
             Manage your organization&apos;s users, roles, and permissions
           </p>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => refetch()}
-          className="flex items-center gap-1"
-        >
-          <RefreshCw className="h-3.5 w-3.5" />
-          <span>Refresh</span>
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => refetch()}
+            className="flex items-center gap-1"
+          >
+            <RefreshCw className="h-3.5 w-3.5" />
+            <span>Refresh</span>
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={exportUsers}
+            className="flex items-center gap-1"
+          >
+            <Download className="h-3.5 w-3.5" />
+            <span>Export</span>
+          </Button>
+        </div>
       </div>
 
       <Card className="border shadow-sm">

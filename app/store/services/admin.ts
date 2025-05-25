@@ -72,7 +72,7 @@ export const adminApi = api.injectEndpoints({
   endpoints: (builder) => ({
     // User Management
     getAllUsers: builder.query<ApiUser[], void>({
-      query: () => "/api/users/all",
+      query: () => "/api/users",
       providesTags: ["User"],
     }),
     getUsers: builder.query<PaginatedResponse<ApiUser>, UserFilterParams>({
@@ -167,6 +167,7 @@ export const adminApi = api.injectEndpoints({
       invalidatesTags: ["Transaction"],
     }),
   }),
+  overrideExisting: true,
 });
 
 export const {

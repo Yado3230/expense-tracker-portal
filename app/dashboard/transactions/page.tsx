@@ -2,10 +2,10 @@
 import React from "react";
 import {
   useGetTransactionsQuery,
-  useDeleteTransactionAdminMutation,
   TransactionFilters,
   Transaction,
 } from "@/app/store/services/transaction";
+import { useDeleteTransactionAdminMutation } from "@/app/store/services/admin";
 import { format, isValid, parseISO } from "date-fns";
 import {
   RefreshCw,
@@ -18,6 +18,7 @@ import {
   Trash2,
   MoreHorizontal,
   Loader2,
+  Download,
 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -186,6 +187,63 @@ const TransactionPage = () => {
     return isValid(date) ? format(date, "MMM dd, yyyy") : "Invalid date";
   };
 
+  // Function to export transactions data
+  const exportTransactions = () => {
+    // Create CSV header
+    const headers = [
+      "Type",
+      "Title",
+      "Description",
+      "Category",
+      "Amount",
+      "Date",
+      "User",
+    ];
+
+    // Create CSV content
+    let csvContent = headers.join(",") + "\n";
+
+    transactions.forEach((transaction) => {
+      const row = [
+        transaction.type,
+        transaction.title,
+        transaction.description || "",
+        transaction.category.name,
+        transaction.amount.toString(),
+        formatDate(transaction.date),
+        `${transaction.user.firstName} ${transaction.user.lastName}`,
+      ];
+
+      // Escape fields that might contain commas
+      const escapedRow = row.map((field) => {
+        if (
+          field.includes(",") ||
+          field.includes('"') ||
+          field.includes("\n")
+        ) {
+          return `"${field.replace(/"/g, '""')}"`;
+        }
+        return field;
+      });
+
+      csvContent += escapedRow.join(",") + "\n";
+    });
+
+    // Create a blob and download
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute(
+      "download",
+      `transactions-export-${new Date().toISOString().split("T")[0]}.csv`
+    );
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   if (isLoading) {
     return (
       <div className="space-y-6">
@@ -238,6 +296,16 @@ const TransactionPage = () => {
           >
             <RefreshCw className="h-3.5 w-3.5" />
             <span>Refresh</span>
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={exportTransactions}
+            className="flex items-center gap-1"
+          >
+            <Download className="h-3.5 w-3.5" />
+            <span>Export</span>
           </Button>
         </div>
       </div>

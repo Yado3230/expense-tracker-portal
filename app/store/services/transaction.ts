@@ -132,7 +132,7 @@ export const transactionApi = api.injectEndpoints({
     }),
     deleteTransaction: builder.mutation<DeleteTransactionResponse, string>({
       query: (id) => ({
-        url: `/transactions/${id}`,
+        url: `/api/transactions/${id}`,
         method: "DELETE",
       }),
       invalidatesTags: (_, __, id) => [
@@ -140,16 +140,8 @@ export const transactionApi = api.injectEndpoints({
         "Transaction",
       ],
     }),
-    deleteTransactionAdmin: builder.mutation<DeleteTransactionResponse, string>(
-      {
-        query: (id) => ({
-          url: `/api/transactions/admin/${id}`,
-          method: "DELETE",
-        }),
-        invalidatesTags: ["Transaction"],
-      }
-    ),
   }),
+  overrideExisting: true,
 });
 
 export const {
@@ -158,5 +150,4 @@ export const {
   useCreateTransactionMutation,
   useUpdateTransactionMutation,
   useDeleteTransactionMutation,
-  useDeleteTransactionAdminMutation,
 } = transactionApi;

@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   CalendarIcon,
   DollarSignIcon,
@@ -28,131 +28,114 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
+import { Transaction } from "@/app/store/services/transaction";
+import {
+  useGetAllUsersQuery,
+  useGetAllTransactionsQuery,
+  ApiUser,
+  PaginatedResponse,
+} from "@/app/store/services/admin";
 
-// Mock data for demonstration
-const recentTransactions = [
-  {
-    id: "t1",
-    title: "Grocery Shopping",
-    amount: -82.5,
-    user: "Michael Johnson",
-    date: "Today",
-    category: "Food",
-    icon: "🛒",
-    color: "bg-emerald-100 text-emerald-700",
-  },
-  {
-    id: "t2",
-    title: "Salary Deposit",
-    amount: 2450.0,
-    user: "Sarah Williams",
-    date: "Yesterday",
-    category: "Income",
-    icon: "💰",
-    color: "bg-blue-100 text-blue-700",
-  },
-  {
-    id: "t3",
-    title: "Netflix Subscription",
-    amount: -14.99,
-    user: "David Chen",
-    date: "3 days ago",
-    category: "Entertainment",
-    icon: "🎬",
-    color: "bg-red-100 text-red-700",
-  },
-  {
-    id: "t4",
-    title: "Electric Bill",
-    amount: -94.2,
-    user: "Emily Rodriguez",
-    date: "Last week",
-    category: "Utilities",
-    icon: "⚡",
-    color: "bg-amber-100 text-amber-700",
-  },
-  {
-    id: "t5",
-    title: "Freelance Payment",
-    amount: 350.0,
-    user: "Alex Patel",
-    date: "Last week",
-    category: "Income",
-    icon: "💼",
-    color: "bg-indigo-100 text-indigo-700",
-  },
-];
-
-// Mock platform stats
-const platformStats = {
-  totalUsers: 158,
-  activeUsers: 132,
-  totalTransactions: 2784,
-  totalRevenue: 285450.75,
-  newUsersThisMonth: 24,
-  userGrowth: 15.8,
-  transactionGrowth: 8.3,
-  revenueGrowth: 12.5,
-};
-
-// Mock user activity data by day
-const userActivityData = [
-  { day: "Mon", count: 45 },
-  { day: "Tue", count: 52 },
-  { day: "Wed", count: 63 },
-  { day: "Thu", count: 58 },
-  { day: "Fri", count: 69 },
-  { day: "Sat", count: 42 },
-  { day: "Sun", count: 38 },
-];
-
-// Mock recent users
-const recentUsers = [
-  {
-    id: "u1",
-    name: "Emma Thompson",
-    email: "emma.t@example.com",
-    joined: "Today",
-    avatar: "👩‍💼",
-    isActive: true,
-  },
-  {
-    id: "u2",
-    name: "Daniel Brown",
-    email: "daniel.b@example.com",
-    joined: "Yesterday",
-    avatar: "👨‍💻",
-    isActive: true,
-  },
-  {
-    id: "u3",
-    name: "Olivia Wilson",
-    email: "olivia.w@example.com",
-    joined: "2 days ago",
-    avatar: "👩‍🦰",
-    isActive: true,
-  },
-  {
-    id: "u4",
-    name: "James Martin",
-    email: "james.m@example.com",
-    joined: "3 days ago",
-    avatar: "👨‍🦱",
-    isActive: false,
-  },
-  {
-    id: "u5",
-    name: "Sophia Garcia",
-    email: "sophia.g@example.com",
-    joined: "5 days ago",
-    avatar: "👩‍🏫",
-    isActive: true,
-  },
-];
+// Define types for the API responses
+type TransactionsResponse = Transaction[] | PaginatedResponse<Transaction>;
+type UsersResponse = ApiUser[] | PaginatedResponse<ApiUser>;
 
 const DashboardPage = () => {
   const [timeframe, setTimeframe] = useState("month");
   const router = useRouter();
+
+  // Fetch transactions and users data from the API with proper typing
+  const { data: transactionsData, isLoading: isLoadingTransactions } =
+    useGetAllTransactionsQuery() as {
+      data: TransactionsResponse | undefined;
+      isLoading: boolean;
+    };
+
+  const { data: usersData, isLoading: isLoadingUsers } =
+    useGetAllUsersQuery() as {
+      data: UsersResponse | undefined;
+      isLoading: boolean;
+    };
+
+  // Extract transactions array regardless of response format
+  const transactions = useMemo(() => {
+    if (!transactionsData) return [];
+    return Array.isArray(transactionsData)
+      ? transactionsData
+      : transactionsData.content || [];
+  }, [transactionsData]);
+
+  // Extract users array regardless of response format
+  const users = useMemo(() => {
+    if (!usersData) return [];
+    return Array.isArray(usersData) ? usersData : usersData.content || [];
+  }, [usersData]);
+
+  // Calculate real platform stats from actual data
+  const platformStats = useMemo(() => {
+    // Default values in case calculations can't be performed
+    const stats = {
+      totalUsers: users.length,
+      activeUsers: users.filter((u) => u.isActive).length,
+      totalTransactions: transactions.length,
+      totalRevenue: 0,
+      newUsersThisMonth: 0,
+      userGrowth: 0,
+      transactionGrowth: 0,
+      revenueGrowth: 0,
+    };
+
+    // Calculate total revenue from all transactions
+    stats.totalRevenue = transactions.reduce((sum, transaction) => {
+      if (transaction.type === "Income") {
+        return sum + transaction.amount;
+      }
+      return sum;
+    }, 0);
+
+    // Calculate new users this month
+    const now = new Date();
+    const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    stats.newUsersThisMonth = users.filter((user) => {
+      const createdAt = new Date(user.createdAt);
+      return createdAt >= firstDayOfMonth;
+    }).length;
+
+    // Calculate growth metrics if we have enough data
+    // For now we'll use placeholder values since we don't have historical data
+    // In a real app, you would compare with previous period data
+    if (stats.totalUsers > 0) {
+      stats.userGrowth = Math.round(
+        (stats.newUsersThisMonth / stats.totalUsers) * 100
+      );
+    }
+
+    // For transaction and revenue growth, we would need historical data
+    // These are placeholders that could be replaced with real calculations
+    stats.transactionGrowth = stats.totalTransactions > 0 ? 5 : 0;
+    stats.revenueGrowth = stats.totalRevenue > 0 ? 8 : 0;
+
+    return stats;
+  }, [users, transactions]);
+
+  // Calculate user activity data by day of week
+  const userActivityData = useMemo(() => {
+    const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const activityByDay = days.map((day) => ({ day, count: 0 }));
+
+    // Count transactions by day of week
+    transactions.forEach((transaction) => {
+      const date = new Date(transaction.date || transaction.createdAt);
+      const dayIndex = date.getDay(); // 0 = Sunday, 1 = Monday, etc.
+      activityByDay[dayIndex].count += 1;
+    });
+
+    return activityByDay;
+  }, [transactions]);
+
+  // Get recent transactions and users
+  const recentTransactions = transactions.slice(0, 5);
+  const recentUsers = users.slice(0, 5);
 
   // Format currency values
   const formatCurrency = (amount: number) => {
@@ -160,6 +143,70 @@ const DashboardPage = () => {
       style: "currency",
       currency: "USD",
     }).format(amount);
+  };
+
+  // Helper function to get transaction display date
+  const getTransactionDate = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffDays = Math.floor(
+      (now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24)
+    );
+
+    if (diffDays === 0) return "Today";
+    if (diffDays === 1) return "Yesterday";
+    if (diffDays < 7) return `${diffDays} days ago`;
+    return "Last week";
+  };
+
+  // Helper function to get user display date
+  const getUserJoinedDate = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffDays = Math.floor(
+      (now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24)
+    );
+
+    if (diffDays === 0) return "Today";
+    if (diffDays === 1) return "Yesterday";
+    if (diffDays === 2) return "2 days ago";
+    if (diffDays === 3) return "3 days ago";
+    if (diffDays === 4) return "4 days ago";
+    if (diffDays === 5) return "5 days ago";
+    return `${diffDays} days ago`;
+  };
+
+  // Helper to get transaction icon and color based on category
+  const getTransactionDisplay = (transaction: Transaction) => {
+    // Default values
+    let icon = transaction.type === "Income" ? "💰" : "🛒";
+    let color =
+      transaction.type === "Income"
+        ? "bg-blue-100 text-blue-700"
+        : "bg-emerald-100 text-emerald-700";
+
+    // Check if category exists and has icon/color
+    if (transaction.category) {
+      if (transaction.category.icon) icon = transaction.category.icon;
+      if (transaction.category.color) {
+        const categoryColor = transaction.category.color;
+        // Map color string to appropriate tailwind classes
+        if (categoryColor.includes("red")) color = "bg-red-100 text-red-700";
+        else if (categoryColor.includes("blue"))
+          color = "bg-blue-100 text-blue-700";
+        else if (categoryColor.includes("green"))
+          color = "bg-emerald-100 text-emerald-700";
+        else if (
+          categoryColor.includes("amber") ||
+          categoryColor.includes("yellow")
+        )
+          color = "bg-amber-100 text-amber-700";
+        else if (categoryColor.includes("purple"))
+          color = "bg-indigo-100 text-indigo-700";
+      }
+    }
+
+    return { icon, color };
   };
 
   return (
@@ -310,7 +357,7 @@ const DashboardPage = () => {
                 <div>
                   <CardTitle className="text-xl">User Activity</CardTitle>
                   <CardDescription className="mt-1">
-                    Active users and engagement metrics
+                    Transactions by day of week
                   </CardDescription>
                 </div>
                 <Tabs defaultValue="users" className="w-full sm:w-auto">
@@ -337,23 +384,33 @@ const DashboardPage = () => {
 
                   {/* Visual representation of user activity data */}
                   <div className="absolute inset-0 flex items-end justify-around px-4 pb-8">
-                    {userActivityData.map((item, index) => (
-                      <div key={index} className="flex flex-col items-center">
-                        <div
-                          className="w-8 bg-gradient-to-t from-violet-500 to-purple-500 rounded-t-md transition-all duration-500 hover:from-violet-400 hover:to-purple-400"
-                          style={{ height: `${(item.count / 70) * 180}px` }}
-                        ></div>
-                        <span className="text-xs mt-2 text-gray-600">
-                          {item.day}
-                        </span>
-                      </div>
-                    ))}
+                    {userActivityData.map((item, index) => {
+                      // Find the max count to normalize the heights
+                      const maxCount = Math.max(
+                        ...userActivityData.map((d) => d.count)
+                      );
+                      // Calculate height percentage (min 5% height even if count is 0)
+                      const heightPercentage =
+                        maxCount > 0 ? 5 + (item.count / maxCount) * 95 : 5;
+
+                      return (
+                        <div key={index} className="flex flex-col items-center">
+                          <div
+                            className="w-8 bg-gradient-to-t from-violet-500 to-purple-500 rounded-t-md transition-all duration-500 hover:from-violet-400 hover:to-purple-400"
+                            style={{ height: `${heightPercentage}%` }}
+                          ></div>
+                          <span className="text-xs mt-2 text-gray-600">
+                            {item.day}
+                          </span>
+                        </div>
+                      );
+                    })}
                   </div>
 
                   {/* Chart overlay */}
                   <div className="absolute top-4 left-4">
                     <h4 className="font-semibold text-gray-700">
-                      Weekly User Activity
+                      Weekly Transaction Activity
                     </h4>
                     <p className="text-sm text-gray-500">
                       Total Active Users: {platformStats.activeUsers}
@@ -373,46 +430,67 @@ const DashboardPage = () => {
                   Latest platform activity across all users
                 </CardDescription>
               </div>
-              <Button variant="outline" size="sm" className="shadow-sm gap-1">
+              <Button
+                variant="outline"
+                size="sm"
+                className="shadow-sm gap-1"
+                onClick={() => router.push("/dashboard/transactions")}
+              >
                 <HistoryIcon className="h-4 w-4" />
                 View All
               </Button>
             </CardHeader>
             <CardContent className="p-0">
               <div className="divide-y divide-gray-100">
-                {recentTransactions.map((transaction) => (
-                  <div
-                    key={transaction.id}
-                    className={cn(
-                      "flex items-center justify-between p-4 transition-colors duration-200 hover:bg-gray-50"
-                    )}
-                  >
-                    <div className="flex items-center space-x-4">
-                      <div
-                        className={`w-10 h-10 rounded-full flex items-center justify-center ${transaction.color}`}
-                      >
-                        <span className="text-lg">{transaction.icon}</span>
-                      </div>
-                      <div>
-                        <p className="font-medium">{transaction.title}</p>
-                        <p className="text-sm text-gray-500">
-                          {transaction.date} •{" "}
-                          <span className="text-violet-600">
-                            {transaction.user}
-                          </span>
-                        </p>
-                      </div>
-                    </div>
-                    <span
-                      className={`font-medium ${
-                        transaction.amount > 0 ? "text-green-600" : ""
-                      }`}
-                    >
-                      {transaction.amount > 0 ? "+" : ""}
-                      {formatCurrency(transaction.amount)}
-                    </span>
+                {isLoadingTransactions ? (
+                  <div className="p-8 text-center text-gray-500">
+                    Loading transactions...
                   </div>
-                ))}
+                ) : recentTransactions && recentTransactions.length > 0 ? (
+                  recentTransactions.map((transaction: Transaction) => {
+                    const { icon, color } = getTransactionDisplay(transaction);
+                    return (
+                      <div
+                        key={transaction._id}
+                        className={cn(
+                          "flex items-center justify-between p-4 transition-colors duration-200 hover:bg-gray-50"
+                        )}
+                      >
+                        <div className="flex items-center space-x-4">
+                          <div
+                            className={`w-10 h-10 rounded-full flex items-center justify-center ${color}`}
+                          >
+                            <span className="text-lg">{icon}</span>
+                          </div>
+                          <div>
+                            <p className="font-medium">{transaction.title}</p>
+                            <p className="text-sm text-gray-500">
+                              {getTransactionDate(transaction.createdAt)} •{" "}
+                              <span className="text-violet-600">
+                                {transaction.user.firstName}{" "}
+                                {transaction.user.lastName}
+                              </span>
+                            </p>
+                          </div>
+                        </div>
+                        <span
+                          className={`font-medium ${
+                            transaction.type === "Income"
+                              ? "text-green-600"
+                              : ""
+                          }`}
+                        >
+                          {transaction.type === "Income" ? "+" : ""}
+                          {formatCurrency(transaction.amount)}
+                        </span>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="p-8 text-center text-gray-500">
+                    No transactions found
+                  </div>
+                )}
               </div>
             </CardContent>
             <CardFooter className="border-t border-gray-100 py-3 flex justify-center">
@@ -420,7 +498,6 @@ const DashboardPage = () => {
                 variant="ghost"
                 size="sm"
                 onClick={() => router.push("/dashboard/transactions")}
-                // 7505
                 className="text-sm text-gray-500 cursor-pointer hover:text-gray-900"
               >
                 Load More Transactions
@@ -441,40 +518,65 @@ const DashboardPage = () => {
                     Recently registered accounts
                   </CardDescription>
                 </div>
-                <Button variant="ghost" size="icon" className="h-8 w-8">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => router.push("/dashboard/users")}
+                >
                   <UsersIcon className="h-4 w-4" />
                 </Button>
               </div>
             </CardHeader>
             <CardContent className="p-0">
               <div className="divide-y divide-gray-100">
-                {recentUsers.map((user) => (
-                  <div
-                    key={user.id}
-                    className="flex items-center justify-between p-4 transition-colors duration-200 hover:bg-gray-50"
-                  >
-                    <div className="flex items-center space-x-4">
-                      <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center text-lg">
-                        {user.avatar}
-                      </div>
-                      <div>
-                        <p className="font-medium">{user.name}</p>
-                        <p className="text-sm text-gray-500">
-                          {user.joined} • {user.email}
-                        </p>
-                      </div>
-                    </div>
-                    <span
-                      className={`text-xs px-2 py-1 rounded-full ${
-                        user.isActive
-                          ? "bg-green-100 text-green-600"
-                          : "bg-gray-100 text-gray-600"
-                      }`}
-                    >
-                      {user.isActive ? "Active" : "Inactive"}
-                    </span>
+                {isLoadingUsers ? (
+                  <div className="p-8 text-center text-gray-500">
+                    Loading users...
                   </div>
-                ))}
+                ) : recentUsers && recentUsers.length > 0 ? (
+                  recentUsers.map((user: ApiUser) => (
+                    <div
+                      key={user._id}
+                      className="flex items-center justify-between p-4 transition-colors duration-200 hover:bg-gray-50"
+                    >
+                      <div className="flex items-center space-x-4">
+                        <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center text-lg">
+                          {user.image ? (
+                            <img
+                              src={user.image}
+                              alt={user.firstName}
+                              className="w-10 h-10 rounded-full object-cover"
+                            />
+                          ) : (
+                            user.firstName.charAt(0) + user.lastName.charAt(0)
+                          )}
+                        </div>
+                        <div>
+                          <p className="font-medium">
+                            {user.firstName} {user.lastName}
+                          </p>
+                          <p className="text-sm text-gray-500">
+                            {getUserJoinedDate(user.createdAt)} • {user.email}
+                          </p>
+                        </div>
+                      </div>
+                      <span
+                        className={`text-xs px-2 py-1 rounded-full ${
+                          user.isActive
+                            ? "bg-green-100 text-green-600"
+                            : "bg-gray-100 text-gray-600"
+                        }`}
+                      >
+                        {user.isActive ? "Active" : "Inactive"}
+                      </span>
+                    </div>
+                  ))
+                ) : (
+                  <div className="p-8 text-center text-gray-500">
+                    No users found
+                  </div>
+                )}
               </div>
             </CardContent>
             <CardFooter className="border-t border-gray-100 p-4">
@@ -489,7 +591,7 @@ const DashboardPage = () => {
             </CardFooter>
           </Card>
 
-          {/* Platform Health */}
+          {/* Platform Health - Based on real data */}
           <Card className="border-0 shadow-md overflow-hidden bg-white transition-all duration-200 hover:shadow-lg">
             <CardHeader className="pb-2 border-b border-gray-100">
               <CardTitle className="text-xl">Platform Health</CardTitle>
@@ -501,46 +603,86 @@ const DashboardPage = () => {
               <div className="space-y-4">
                 <div className="space-y-2">
                   <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium">API Status</span>
+                    <span className="text-sm font-medium">User Activity</span>
                     <span className="text-xs px-2 py-1 rounded-full bg-green-100 text-green-600">
-                      Operational
+                      {platformStats.activeUsers > 0 ? "Active" : "Low"}
                     </span>
                   </div>
                   <div className="h-2 rounded-full bg-gray-100">
-                    <div className="h-2 rounded-full bg-green-500 w-[99%]"></div>
+                    <div
+                      className="h-2 rounded-full bg-green-500"
+                      style={{
+                        width:
+                          platformStats.totalUsers > 0
+                            ? `${Math.min(
+                                100,
+                                (platformStats.activeUsers /
+                                  platformStats.totalUsers) *
+                                  100
+                              )}%`
+                            : "0%",
+                      }}
+                    ></div>
                   </div>
                   <p className="text-xs text-gray-500">
-                    99.9% uptime in the last 30 days
+                    {platformStats.activeUsers} active users of{" "}
+                    {platformStats.totalUsers} total
                   </p>
                 </div>
 
                 <div className="space-y-2">
                   <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium">Database Load</span>
-                    <span className="text-xs px-2 py-1 rounded-full bg-green-100 text-green-600">
-                      Normal
+                    <span className="text-sm font-medium">
+                      Transaction Volume
+                    </span>
+                    <span className="text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-600">
+                      {platformStats.totalTransactions > 100
+                        ? "High"
+                        : platformStats.totalTransactions > 50
+                        ? "Medium"
+                        : "Low"}
                     </span>
                   </div>
                   <div className="h-2 rounded-full bg-gray-100">
-                    <div className="h-2 rounded-full bg-blue-500 w-[45%]"></div>
+                    <div
+                      className="h-2 rounded-full bg-blue-500"
+                      style={{
+                        width: `${Math.min(
+                          100,
+                          (platformStats.totalTransactions / 200) * 100
+                        )}%`,
+                      }}
+                    ></div>
                   </div>
                   <p className="text-xs text-gray-500">
-                    45% of capacity utilized
+                    {platformStats.totalTransactions} transactions processed
                   </p>
                 </div>
 
                 <div className="space-y-2">
                   <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium">Storage</span>
+                    <span className="text-sm font-medium">Revenue</span>
                     <span className="text-xs px-2 py-1 rounded-full bg-amber-100 text-amber-600">
-                      Moderate
+                      {platformStats.totalRevenue > 10000
+                        ? "Excellent"
+                        : platformStats.totalRevenue > 5000
+                        ? "Good"
+                        : "Growing"}
                     </span>
                   </div>
                   <div className="h-2 rounded-full bg-gray-100">
-                    <div className="h-2 rounded-full bg-amber-500 w-[72%]"></div>
+                    <div
+                      className="h-2 rounded-full bg-amber-500"
+                      style={{
+                        width: `${Math.min(
+                          100,
+                          (platformStats.totalRevenue / 20000) * 100
+                        )}%`,
+                      }}
+                    ></div>
                   </div>
                   <p className="text-xs text-gray-500">
-                    72% of storage capacity used
+                    {formatCurrency(platformStats.totalRevenue)} total revenue
                   </p>
                 </div>
               </div>

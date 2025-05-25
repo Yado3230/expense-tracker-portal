@@ -86,8 +86,10 @@ export function useAuth() {
 
   const logout = () => {
     Cookies.remove("access_token");
+    Cookies.remove("isAdmin");
     localStorage.removeItem("access_token");
     localStorage.removeItem("user");
+    localStorage.removeItem("isAdmin");
     setIsAuthenticated(false);
     setUser(null);
     router.push("/auth/login");

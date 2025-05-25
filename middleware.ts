@@ -22,6 +22,9 @@ export function middleware(request: NextRequest) {
   const token = request.cookies.get("access_token")?.value;
   const path = request.nextUrl.pathname;
 
+  // Get isAdmin value from cookies
+  const isAdmin = request.cookies.get("isAdmin")?.value === "true";
+
   // Check if the path is a protected route and there's no token
   const isProtectedRoute = protectedRoutes.some(
     (route) => path === route || path.startsWith(`${route}/`)
@@ -39,8 +42,8 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  // Redirect to dashboard if trying to access auth routes while logged in
-  if (isAuthRoute && token) {
+  // Only redirect from auth routes to dashboard if user is logged in AND is an admin
+  if (isAuthRoute && token && isAdmin) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 

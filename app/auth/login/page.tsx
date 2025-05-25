@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -10,6 +10,7 @@ import { useLoginMutation } from "@/app/store/services/auth";
 import { Loading } from "@/components/ui/loading";
 import { useAuth } from "@/lib/auth";
 import { AtSign, KeyRound, AlertTriangle } from "lucide-react";
+import Cookies from "js-cookie";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -37,6 +38,21 @@ const LoginPage = () => {
   const [login, { isLoading }] = useLoginMutation();
   const { setAuthUser } = useAuth();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Clear any existing admin status when the login page loads
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      // Only run on client side
+      const currentIsAdmin = localStorage.getItem("isAdmin");
+
+      // If user was redirected from dashboard due to not being admin
+      if (currentIsAdmin === "false") {
+        setErrorMessage(
+          "Access denied. Only administrators can log in to this portal."
+        );
+      }
+    }
+  }, []);
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -66,17 +82,81 @@ const LoginPage = () => {
       // Success case - result.data contains the response
       const response = result.data;
 
-      // Use the auth hook to manage user session
-      setAuthUser(response.user, response.token);
+      // Check admin status before setting auth user
+      const isAdmin = await checkAdminStatus(response.token);
 
-      // Redirect to dashboard after successful login
-      router.push("/dashboard");
+      if (isAdmin) {
+        // User is admin, set auth user and redirect to dashboard
+        setAuthUser(response.user, response.token);
+        localStorage.setItem("isAdmin", "true");
+        Cookies.set("isAdmin", "true", {
+          expires: 7, // 7 days
+          path: "/",
+          sameSite: "strict",
+        });
+        router.push("/dashboard");
+      } else {
+        // User is not admin, show error message
+        setErrorMessage(
+          "Access denied. Only administrators can log in to this portal."
+        );
+        // Don't set auth user for non-admins
+        localStorage.setItem("isAdmin", "false");
+        Cookies.set("isAdmin", "false", {
+          expires: 7,
+          path: "/",
+          sameSite: "strict",
+        });
+      }
     } catch (error: unknown) {
       // Fallback error handling
       console.error("Login error:", error);
       setErrorMessage("An unexpected error occurred. Please try again.");
     }
   }
+
+  // Function to check admin status, returns true if admin, false otherwise
+  const checkAdminStatus = async (token: string): Promise<boolean> => {
+    try {
+      // Make a request to the users endpoint (admin-only)
+      const response = await fetch(
+        "https://expense-tracker-backend-eight.vercel.app/api/users?page=0&size=1",
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      // If response is not ok, user is not admin
+      if (!response.ok) {
+        console.log("User is not an admin (request failed)");
+        return false;
+      }
+
+      try {
+        // Parse the response JSON
+        const data = await response.json();
+
+        // Check if the response contains an error message
+        if (data && data.message === "Access denied, admin only") {
+          console.log("User is not an admin:", data.message);
+          return false;
+        }
+
+        // Success with actual data and no error message means user is admin
+        console.log("User is an admin");
+        return true;
+      } catch (parseError) {
+        console.error("Error parsing admin check response:", parseError);
+        return false;
+      }
+    } catch (error) {
+      // If request fails, user is not an admin
+      console.error("Admin check request failed:", error);
+      return false;
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-blue-50 flex items-center justify-center">

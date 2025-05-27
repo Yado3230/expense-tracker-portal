@@ -208,7 +208,7 @@ const TransactionPage = () => {
         transaction.type,
         transaction.title,
         transaction.description || "",
-        transaction.category.name,
+        transaction.category?.name || "Uncategorized",
         transaction.amount.toString(),
         formatDate(transaction.date),
         `${transaction.user.firstName} ${transaction.user.lastName}`,
@@ -507,10 +507,13 @@ const TransactionPage = () => {
                         <div
                           className="w-2 h-2 rounded-full inline-block mr-2"
                           style={{
-                            backgroundColor: transaction.category.color,
+                            backgroundColor:
+                              transaction.category?.color || "#cccccc",
                           }}
                         ></div>
-                        <span>{transaction.category.name}</span>
+                        <span>
+                          {transaction.category?.name || "Uncategorized"}
+                        </span>
                       </TableCell>
                       <TableCell>
                         <div
@@ -672,7 +675,7 @@ const TransactionPage = () => {
                     </p>
                     <p>
                       <strong>Category:</strong>{" "}
-                      {currentTransaction.category.name}
+                      {currentTransaction.category?.name || "Uncategorized"}
                     </p>
                     <p>
                       <strong>Amount:</strong>{" "}

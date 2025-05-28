@@ -58,7 +58,9 @@ const CategoryPage = () => {
         category.description || "",
         category.type,
         category.transactionType,
-        category.budget.toFixed(2),
+        category.budget !== null && category.budget !== undefined
+          ? category.budget.toFixed(2)
+          : "0.00",
         category.isActive ? "Active" : "Inactive",
         category.createdAt ? formatDate(category.createdAt) : "N/A",
       ];
@@ -148,7 +150,11 @@ const CategoryPage = () => {
       accessorKey: "budget",
       header: "Budget",
       cell: ({ row }) => (
-        <span className="text-sm">${row.original.budget.toFixed(2)}</span>
+        <span className="text-sm">
+          {row.original.budget !== null && row.original.budget !== undefined
+            ? `$${row.original.budget.toFixed(2)}`
+            : "$0.00"}
+        </span>
       ),
     },
     {
